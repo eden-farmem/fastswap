@@ -1,0 +1,16 @@
+** ANIL SETUP NOTES ***
+
+TODO Turn-off hyper-threading?
+
+
+Commands:
+Client:
+SPORT=50000
+farmemip=192.168.0.7
+clientip=192.168.0.40
+sudo insmod fastswap_rdma.ko sport=50000 sip="$farmemip" cip="$clientip" 
+sudo dmesg 
+sudo insmod fastswap.ko
+
+Server:
+./rmserver 50000
