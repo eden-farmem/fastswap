@@ -1,0 +1,6 @@
+Exp,CPU,Threads,MaxMem,LocalMem,PreloadRate,Runtime,Xput,RSS_KB,MajPGF,MajPGF/s,MinPGF,MinPGF/s,CPU%,Desc
+run-04-12-12-38,1,1,2297128K,max,143238,33,159566,2062060,0,0,1398455,32942,93%,baseline xput no remote memory
+run-04-12-12-40,2,2,2369184K,max,170025,33,316867,2060232,0,0,1485175,34182,133%,baseline xput no remote memory
+run-04-12-12-41,3,3,2441116K,max,396229,33,512016,2060392,0,0,1651870,44376,263%,baseline xput no remote memory
+run-04-12-12-42,4,4,2427112K,max,331949,33,586788,2062760,0,0,1854621,46067,272%,baseline xput no remote memory
+run-04-12-12-44,5,5,2490100K,max,582449,33,676591,2095676,0,0,1832587,54825,402%,baseline xput no remote memory
