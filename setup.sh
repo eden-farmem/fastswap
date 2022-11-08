@@ -11,6 +11,7 @@ HOST_IP="192.168.0.40"
 MEMSERVER_SSH="sc32"
 MEMSERVER_IP="192.168.0.32"
 MEMSERVER_PORT="50000"
+FSBACKEND=local
 
 loaded() {
     MODULE=$1
@@ -41,6 +42,10 @@ case $i in
     -hip=*|--host-ip=*)
     HOST_IP="${i#*=}"
     ;;
+    
+    -bk=*|--backend=*)
+    FSBACKEND="${i#*=}"
+    ;;
 
     -d|--debug)
     CFLAGS="$CFLAGS -DDEBUG"
@@ -68,32 +73,59 @@ case $i in
 esac
 done
 
+
+
 pushd ${SCRIPT_DIR}/drivers
 make clean
-make BACKEND=RDMA
-popd
-pushd ${SCRIPT_DIR}/farmemserver
-make clean
-make
+if [ "$FSBACKEND" == "rdma" ]; then
+    make BACKEND=RDMA
+    bkend_sfx=rdma
+    bkend_args="sport=${MEMSERVER_PORT} sip=${MEMSERVER_IP} cip=${HOST_IP}"
+    bkend_text="ctrl"
+elif [ "$FSBACKEND" == "local" ]; then  
+    make BACKEND=DRAM
+    bkend_sfx=dram
+    bkend_args=
+    bkend_text="DRAM backend"
+else
+    echo "Unknown backend $FSBACKEND. Allowed: rdma, local"
+    exit 1
+fi
 popd
 
-# run memory server
-echo "starting memserver"
-ssh ${MEMSERVER_SSH} "pkill rmserver" || true
-sleep 1     #to unbind port
-ssh ${MEMSERVER_SSH} "mkdir -p ~/scratch"
-scp ${SCRIPT_DIR}/farmemserver/rmserver ${MEMSERVER_SSH}:~/scratch
-ssh ${MEMSERVER_SSH} "~/scratch/rmserver ${MEMSERVER_PORT} | tee -a ~/scratch/out" &
-sleep 2
+# setup memory server
+if [ "$FSBACKEND" == "rdma" ]; then
+    pushd ${SCRIPT_DIR}/farmemserver
+    make clean
+    make
+    popd
+
+    # re-run memory server
+    echo "starting memserver"
+    ssh ${MEMSERVER_SSH} "pkill rmserver" || true
+    sleep 1     #to unbind port
+    ssh ${MEMSERVER_SSH} "mkdir -p ~/scratch"
+    scp ${SCRIPT_DIR}/farmemserver/rmserver ${MEMSERVER_SSH}:~/scratch
+    ssh ${MEMSERVER_SSH} "~/scratch/rmserver ${MEMSERVER_PORT} | tee -a ~/scratch/out" &
+    sleep 2
+fi
 
 # reload client drivers
-echo "loading drivers"
+echo "reloading drivers"
 pushd ${SCRIPT_DIR}/drivers
-if loaded "fastswap"; then      sudo rmmod fastswap;        fi
-if loaded "fastswap_rdma"; then sudo rmmod fastswap_rdma;   fi
-prevsuccess=$(sudo dmesg | grep "ctrl is ready for reqs" | wc -l)
-sudo insmod fastswap_rdma.ko sport=${MEMSERVER_PORT} sip="${MEMSERVER_IP}" cip="${HOST_IP}" 
-currsuccess=$(sudo dmesg | grep "ctrl is ready for reqs" | wc -l)
+if loaded "fastswap"; then 
+    sudo rmmod fastswap
+fi
+if loaded "fastswap_rdma"; then
+    sudo rmmod fastswap_rdma
+fi
+if loaded "fastswap_dram"; then
+    sudo rmmod fastswap_dram
+fi
+
+prevsuccess=$(sudo dmesg | grep "${bkend_text} is ready for reqs" | wc -l)
+sudo insmod fastswap_${bkend_sfx}.ko ${bkend_args} 
+currsuccess=$(sudo dmesg | grep "${bkend_text} is ready for reqs" | wc -l)
 if [ $currsuccess -le $prevsuccess ]; then 
     echo "load failed";
     exit 1 
