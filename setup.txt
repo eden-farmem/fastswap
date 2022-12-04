@@ -2,7 +2,19 @@
 
 TODO Turn-off hyper-threading?
 
+# change swap size (https://askubuntu.com/questions/178712/how-to-increase-swap-space)
+# but do it from a different kernel, not the fastswap kernel
+sudo swapoff -a     # turnoff swap
+sudo dd if=/dev/zero of=/swapfile bs=1G count=48    # 48GB space, takes a min
+sudo chmod 0600 /swapfile
+sudo mkswap /swapfile           # takes a min
+sudo swapon /swapfile           # Turn the swap on
+grep Swap /proc/meminfo         # should show something
+Add "/swapfile swap swap sw 0 0" to /etc/fstab
 
+# Disable Intel cstates
+ /etc/default/grub are not respected for some reason, had to add them 
+ directly to /etc/grub/grub.cfg 
 
 Commands:
 Client:

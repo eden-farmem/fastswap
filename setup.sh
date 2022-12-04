@@ -8,8 +8,8 @@
 SCRIPT_DIR=`dirname "$0"`
 HOST_SSH="sc40"
 HOST_IP="192.168.0.40"
-MEMSERVER_SSH="sc32"
-MEMSERVER_IP="192.168.0.32"
+MEMSERVER_SSH="sc07"
+MEMSERVER_IP="192.168.0.7"
 MEMSERVER_PORT="50000"
 FSBACKEND=local
 
@@ -103,11 +103,11 @@ if [ "$FSBACKEND" == "rdma" ]; then
     # re-run memory server
     echo "starting memserver"
     ssh ${MEMSERVER_SSH} "pkill rmserver" || true
-    sleep 1     #to unbind port
+    sleep 5     #to unbind port
     ssh ${MEMSERVER_SSH} "mkdir -p ~/scratch"
     scp ${SCRIPT_DIR}/farmemserver/rmserver ${MEMSERVER_SSH}:~/scratch
-    ssh ${MEMSERVER_SSH} "~/scratch/rmserver ${MEMSERVER_PORT} | tee -a ~/scratch/out" &
-    sleep 2
+    ssh ${MEMSERVER_SSH} "nohup ~/scratch/rmserver ${MEMSERVER_PORT} &" < /dev/null &
+    sleep 1
 fi
 
 # reload client drivers
@@ -124,6 +124,7 @@ if loaded "fastswap_dram"; then
 fi
 
 prevsuccess=$(sudo dmesg | grep "${bkend_text} is ready for reqs" | wc -l)
+echo sudo insmod fastswap_${bkend_sfx}.ko ${bkend_args} 
 sudo insmod fastswap_${bkend_sfx}.ko ${bkend_args} 
 currsuccess=$(sudo dmesg | grep "${bkend_text} is ready for reqs" | wc -l)
 if [ $currsuccess -le $prevsuccess ]; then 
