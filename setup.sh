@@ -125,14 +125,18 @@ fi
 
 prevsuccess=$(sudo dmesg | grep "${bkend_text} is ready for reqs" | wc -l)
 echo sudo insmod fastswap_${bkend_sfx}.ko ${bkend_args} 
-sudo insmod fastswap_${bkend_sfx}.ko ${bkend_args} 
-currsuccess=$(sudo dmesg | grep "${bkend_text} is ready for reqs" | wc -l)
-if [ $currsuccess -le $prevsuccess ]; then 
+sudo insmod fastswap_${bkend_sfx}.ko ${bkend_args}
+if [ "$?" != "0" ]; then
     echo "load failed";
-    exit 1 
+    exit 1
 fi
 # sudo dmesg 
 sudo insmod fastswap.ko
+# currsuccess=$(sudo dmesg | grep "${bkend_text} is ready for reqs" | wc -l)
+# if [ $currsuccess -le $prevsuccess ]; then 
+#     echo "load failed";
+#     exit 1 
+# fi
 popd
 
 # setup cgroups
