@@ -93,24 +93,7 @@ else
 fi
 popd
 
-# setup memory server
-if [ "$FSBACKEND" == "rdma" ]; then
-    pushd ${SCRIPT_DIR}/farmemserver
-    make clean
-    make
-    popd
-
-    # re-run memory server
-    echo "starting memserver"
-    ssh ${MEMSERVER_SSH} "pkill rmserver" || true
-    sleep 5     #to unbind port
-    ssh ${MEMSERVER_SSH} "mkdir -p ~/scratch"
-    scp ${SCRIPT_DIR}/farmemserver/rmserver ${MEMSERVER_SSH}:~/scratch
-    ssh ${MEMSERVER_SSH} "nohup ~/scratch/rmserver ${MEMSERVER_PORT} &" < /dev/null &
-    sleep 1
-fi
-
-# reload client drivers
+# unload client drivers
 echo "reloading drivers"
 pushd ${SCRIPT_DIR}/drivers
 if loaded "fastswap"; then 
@@ -121,6 +104,23 @@ if loaded "fastswap_rdma"; then
 fi
 if loaded "fastswap_dram"; then
     sudo rmmod fastswap_dram
+fi
+
+# setup memory server
+if [ "$FSBACKEND" == "rdma" ]; then
+    pushd ${SCRIPT_DIR}/farmemserver
+    make clean
+    make
+    popd
+
+    # re-run memory server
+    echo "starting memserver"
+    ssh ${MEMSERVER_SSH} "sudo pkill rmserver" || true
+    sleep 10     #to unbind port
+    ssh ${MEMSERVER_SSH} "mkdir -p ~/scratch"
+    scp ${SCRIPT_DIR}/farmemserver/rmserver ${MEMSERVER_SSH}:~/scratch
+    ssh ${MEMSERVER_SSH} "nohup ~/scratch/rmserver ${MEMSERVER_PORT} &" < /dev/null &
+    sleep 1
 fi
 
 prevsuccess=$(sudo dmesg | grep "${bkend_text} is ready for reqs" | wc -l)
