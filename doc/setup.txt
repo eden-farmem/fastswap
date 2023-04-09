@@ -1,0 +1,271 @@
+** ANIL SETUP NOTES ***
+
+TODO Turn-off hyper-threading?
+
+# change swap size (https://askubuntu.com/questions/178712/how-to-increase-swap-space)
+# but do it from a different kernel, not the fastswap kernel
+sudo swapoff -a     # turnoff swap
+sudo dd if=/dev/zero of=/swapfile bs=1G count=48    # 48GB space, takes a min
+sudo chmod 0600 /swapfile
+sudo mkswap /swapfile           # takes a min
+sudo swapon /swapfile           # Turn the swap on
+grep Swap /proc/meminfo         # should show something
+Add "/swapfile swap swap sw 0 0" to /etc/fstab
+
+# Disable Intel cstates
+ /etc/default/grub are not respected for some reason, had to add them 
+ directly to /etc/grub/grub.cfg 
+
+Commands:
+Client:
+SPORT=50000
+farmemip=192.168.0.7
+clientip=192.168.0.40
+sudo insmod fastswap_rdma.ko sport=50000 sip="$farmemip" cip="$clientip" 
+sudo dmesg 
+sudo insmod fastswap.ko
+
+changed 
+
+Server:
+./rmserver 50000
+
+
+MEMASLAP CHANGES
+wget https://launchpad.net/libmemcached/1.0/1.0.18/+download/libmemcached-1.0.18.tar.gz
+apply patch: TODO create patch
+./configure -prefix=/usr/local/ --with-memcached --enable-memaslap
+make -j 40
+sudo make install
+
+
+
+MEMCACHED
+numactl -N 1 -m 1  /home/ayelam/rmem-scheduler/memcached/memcached  \
+    memcached.config -u ayelam -t 4 -U 5017 -p 5017 -c 32768 -m 32000 -b 32768 -P memcached_pid -r \
+    -o hashpower=28,no_hashexpand,no_lru_crawler,no_lru_maintainer,idle_timeout=0 \
+    2>&1 | ts %s  > memcached.out   
+
+numactl -N 1 -m 1 memcached -t 4 -U 5017 -p 5017 -c 32768 -m 32000 -b 32768 -P memcached_pid -r \
+    -o hashpower=28,no_hashexpand,no_lru_crawler,no_lru_maintainer,idle_timeout=0
+
+10573184
+
+more kernel threads reduces xput -- why? (Can it be used as an argument for kernel overhead?)
+more kernel threads also drastically change used memory; adding more cores also do it but only slightly.
+
+Exp              CPU  Threads  MaxMem    Xput  
+run-04-11-01-31  1    5        2460756K  169522
+run-04-11-01-33  1    10       2701200K  141124
+run-04-11-01-35  1    25       3508972K  142290
+run-04-11-01-36  1    50       5177492K  132952
+run-04-11-01-38  2    5        2463076K  331547
+run-04-11-01-40  2    10       2715872K  304252
+run-04-11-01-41  2    25       3628812K  321017
+run-04-11-01-42  2    50       5400124K  295488
+run-04-11-01-43  3    5        2450732K  509679
+run-04-11-01-44  3    10       2776500K  454798
+run-04-11-01-45  3    25       3506008K  476283
+run-04-11-01-46  3    50       5465612K  427037
+run-04-11-01-48  4    5        2537868K  639909
+run-04-11-01-49  4    25       3609716K  609891
+run-04-11-01-50  4    50       5398232K  547363
+run-04-11-01-51  5    5        2514864K  673307
+run-04-11-01-52  5    10       2903604K  674775
+run-04-11-01-53  5    25       3303768K  657554
+run-04-11-01-54  5    50       5087016K  654458
+
+fastswap works because RSS shows that.
+
+why is mcached xput so low? 
+is it memcached opts? No
+vary concurrency as well on the client side? increase client cores?
+
+
+## command log - sosp SETUP
+
+    1  exit
+    2  nproc
+    3  quit
+    4  exit
+    5  df -h
+    6  git clone git@github.com:eden-ucsd-vmware/eden-all.git
+    7  cd eden-all/
+    8  ls
+    9  ifconfig
+   10  git submodule update --init
+   11  ls
+   12  cd ..
+   13  ls
+   14  git clone   git://git.launchpad.net/~ubuntu-kernel-test/ubuntu/+source/linux/+git/mainline-crack v4.11
+   15  ls
+   16  ls v4.11/
+   17  mv v4.11/ linux-fswap
+   18  cd linux-fswap/
+   19  cp ../eden-all/fastswap/kernel/config-4.11.0-041100-generic .
+   20  ls
+   21  git init .
+   22  git status
+   23  git log
+   24  git checkout a351e9b9fc24e982ec2f0e76379a49826036da12
+   25  git checkout -b fswap
+   26  git apply ~/eden-all/fastswap/kernel/kernel.patch
+   27  mv config-4.11.0-041100-generic .config
+   28  sudo apt-get install git build-essential kernel-package fakeroot libncurses5-dev libssl-dev ccache bison flex
+   29  git status
+   30  code .
+   31  htop
+   32  exit
+   33  ls
+   34  free -h
+   35  cd fastswap/
+   36  l
+   37  code chat_with_author.txt
+   38  free -h
+   39  sudo swapoff -a
+   40  free -h
+   41  df -h
+   42  sudo dd if=/dev/zero of=/swapfile bs=1G count=48
+   43  sudo chmod 0600 /swapfile
+   44  sudo mkswap /swapfile
+   45  sudo swapon /swapfile
+   46  free -h
+   47  sudo vim /stc/fstab
+   48  sudo vim /etc/fstab
+   49  git status
+   50  git commit -m "fswap patch with reclaim cpu updated"
+   51  git add .
+   52  git commit -m "fswap patch with reclaim cpu updated"
+   53  make -j `getconf _NPROCESSORS_ONLN` deb-pkg LOCALVERSION=-fastswap
+   54  make -j 40
+   55  sudo make modules_install -j 40
+   56  sudo make install
+   57  sudo reboot
+   58  sudo make headers_install INSTALL_HDR_PATH=/usr
+   59  uname -a
+   60  cd ..
+   61  ls
+   62  rm *.deb
+   63  ls
+   64  rm *.gz
+   65  ls
+   66  rm linux-4.11.0-fastswap_4.11.0-fastswap-1*
+   67  ls
+   68  wget     sudo apt-get install libpci-dev libpopt-dev
+   69  ls
+   70  tar xvf MLNX_OFED_LINUX-4.3-1.0.1.0-ubuntu18.04-x86_64.tgz 
+   71  tar xvf MLNX_OFED_LINUX-5.4-3.6.8.1-ubuntu18.04-x86_64.tgz 
+   72  cd MLNX_OFED_LINUX-5.4-3.6.8.1-ubuntu18.04-x86_64/
+   73  sudo ./mlnxofedinstall --all --add-kernel-support
+   74  cd ../MLNX_OFED_LINUX-4.3-1.0.1.0-ubuntu18.04-x86_64/
+   75  sudo ./mlnxofedinstall --all --add-kernel-support
+   76  sudo /etc/init.d/openibd restart
+   77  cd ..
+   78  ls
+   79  cd eden-all/fastswap/
+   80  ls
+   81  code init_bench_cgroups.sh 
+   82  sudo ./init_bench_cgroups.sh 
+   83  sudo /boot/grub/grub.cfg
+   84  sudo vim /boot/grub/grub.cfg
+   85  sudo update-grub
+   86  sudo reboot
+   87  sudo dmesg | grep cgroup
+   88  sudo visudo
+   89  sudo dmesg | grep cgroup
+   90  sudo vim /etc/default/grub 
+   91  sudo update-grub
+   92  sudo reboot
+   93  sudo dmesg | grep cgroup
+   94  sudo mkdir /cgroup2
+   95  sudo visudo
+   96  LS
+   97  passwd
+   98  clear
+   99  cd fastswap/
+  100  ls
+  101  ./init_bench_cgroups.sh 
+  102  sudo dmesg | grep cgroup
+  103  sudo ./init_bench_cgroups.sh 
+  104  cat /boot/grub/grub.cfg
+  105  uname -a
+  106  sudo dmesg | grep cgroup
+  107  cat /etc/default/grub 
+  108  cat  /boot/grub/grub.cfg 
+  109  sudo vim /etc/default/grub 
+  110  sudo update-grub
+  111  sudo reboot
+  112  uname -a
+  113  cat /etc/default/grub 
+  114  sudo vim /etc/default/grub 
+  115  sudo visudo
+  116  sudo vim /etc/default/grub 
+  117  sudo update-grub
+  118  sudo reboot
+  119  cd fastswap/
+  120  ./init_bench_cgroups.sh 
+  121  ls
+  122  ifconfig
+  123  sudo ip link
+  124  sudo ip link enp216s0f0 up
+  125  sudo ip link set enp216s0f0 up
+  126  sudo ip link set enp216s0f1 up
+  127  ifconfig
+  128  lstopo
+  129  sudo apt install hwloc-nox
+  130  lstopo
+  131  sudo ifconfig enp216s0f1 192.168.100.116 255.255.255.0
+  132  sudo ifconfig enp216s0f1 192.168.100.116 
+  133  ping 192.168.100.106
+  134  ping 192.168.0.30
+  135  sudo ifconfig enp216s0f0 192.168.0.40
+  136  ping 192.168.0.30
+  137  sudo ifconfig enp216s0f0 112.168.0.40
+  138  sudo ifconfig enp216s0f1 192.168.0.40
+  139  sudo ifconfig enp216s0f0 192.168.100.116 
+  140  ping 192.168.0.30
+  141  sudo ifconfig enp216s0f0 192.168.0.40
+  142  sudo ifconfig enp216s0f1 192.168.100.116 
+  143  ping 192.168.0.30
+  144  cd ../apps/synthetic-cpp/
+  145  code measure.sh 
+  146  bash measure.sh 
+  147  pushd ../../eden/
+  148  ./setup.sh -d
+  149  ./setup.sh -d -dv=18.11
+  150  ./setup.sh -d -dv=18.11 -f
+  151  sudo apt-get install libnuma-dev
+  152  ./setup.sh -d -dv=18.11
+  153  ./setup.sh -d -dv=18.11 -f
+  154  ./setup.sh -d -dv=18.11 
+  155  cd ../apps/synthetic-cpp/
+  156  bash measure.sh 
+  157  sudo apt-get install gcc-9 g++-9
+  158  sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+  159  sudo apt-get install gcc-9 g++-9
+  160  sudo update-alternatives --config g++
+  161  sudo apt-get install gcc-9 g++-9
+  162  sudo update-alternatives --config g++
+  163  g++ --version
+  164  sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 100
+  165  sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 50
+  166  sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 100
+  167  sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 50
+  168  history 300
+
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 100
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 50
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 100
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 50
+
+sudo apt-get update
+echo Y | sudo apt-get --fix-broken install
+echo Y | sudo apt-get install libnuma-dev libmnl-dev libnl-3-dev libnl-route-3-dev
+echo Y | sudo apt-get install libcrypto++-dev libcrypto++-doc libcrypto++-utils
+echo Y | sudo apt-get install software-properties-common
+echo Y | sudo apt-get install gcc-9 g++-9 python-pip
+echo Y | sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+echo Y | sudo apt-get purge cmake
+sudo pip install --upgrade pip
+sudo pip install cmake
+

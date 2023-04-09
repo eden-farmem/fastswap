@@ -1,0 +1,989 @@
+Anil Yelam
+  10:39 AM
+hi Emmanuel
+10:41
+I have a question around setting up fastswap. I’m shooting for a deadline in two weeks so I hope its ok if I dm you on slack and not email you
+10:42
+I followed instructions about building the fastswap kernel and everything went ok as far as I could see. but when i boot into it, I see something like this:
+image.png
+ 
+image.png
+
+
+10:42
+just wondering if you’d seen this before
+
+
+Emmanuel Amaro
+  10:43 AM
+Hi Anil
+10:44
+No worries, perfectly fine
+10:44
+Uhmm, I'm not sure about that error message, it doesn't seem related to fastswap to me
+10:44
+When you boot into the VM you see this message?
+
+
+Anil Yelam
+  10:45 AM
+yes, right after i pick fastswap kernel in the boot menu
+
+
+Emmanuel Amaro
+  10:45 AM
+I see, have you been able to boot into kernel 4.11 without fastswap patches?
+
+
+Anil Yelam
+  10:45 AM
+i do have to boot into this kernel right? the instructions do not explocitly say that
+10:45
+Ah.. good point. no i was on 4.15
+
+
+Emmanuel Amaro
+  10:45 AM
+yeah I'd try booting into vanilla 4.11 first
+
+
+Anil Yelam
+  10:46 AM
+makes sense
+
+
+Emmanuel Amaro
+  10:46 AM
+and slack me anytime, happy to help more
+
+
+Anil Yelam
+  10:46 AM
+will do thank you! :)
+
+
+Emmanuel Amaro
+  3:06 PM
+yeah basically make sure the number of queue pairs in the driver match the memory server side
+
+
+Anil Yelam
+  3:07 PM
+i see, i’ll consider that. i haven’t looked at the code, i’m guessing there’s a parameter for this?
+
+
+Emmanuel Amaro
+  3:27 PM
+Yes, driver: https://github.com/clusterfarmem/fastswap/blob/7fc986a62dd348b3592c207f4536646c3e610782/drivers/fastswap_rdma.c#L9
+memory server: https://github.com/clusterfarmem/fastswap/blob/7fc986a62dd348b3592c207f4536646c3e610782/farmemserver/rmserver.c#L13
+fastswap_rdma.c
+<https://github.com/clusterfarmem/fastswap|clusterfarmem/fastswap>clusterfarmem/fastswap | Added by https://vmware.slack.com/services/B01UWS06EEM
+rmserver.c
+<https://github.com/clusterfarmem/fastswap|clusterfarmem/fastswap>clusterfarmem/fastswap | Added by https://vmware.slack.com/services/B01UWS06EEM
+
+
+Anil Yelam
+  3:43 PM
+thansks!
+3:43
+also, the doc says “your swap device must be exactly 32GB or less”.. but then it also says “When you type free in the terminal you must see that Swap has 32GB of space available”.. so is 9GB okay, for example?
+
+
+Emmanuel Amaro
+  3:44 PM
+the swap space can be any size, but this https://github.com/clusterfarmem/fastswap/blob/7fc986a62dd348b3592c207f4536646c3e610782/farmemserver/rmserver.c#L10 should be equal (hard to get exactly right) or larger
+rmserver.c
+const size_t BUFFER_SIZE = 1024 * 1024 * 1024 * 32l;
+<https://github.com/clusterfarmem/fastswap|clusterfarmem/fastswap>clusterfarmem/fastswap | Added by https://vmware.slack.com/services/B01UWS06EEM
+
+
+Anil Yelam
+  3:45 PM
+gotcha
+3:45
+btw IF you folks decide to go with kona, happy to help with setting it up, onboarding, etc. i’ve spent a year on it now so I know the code inside out
+3:46
+I might also work on improving some aspects in future so it’ll be nice to go in tandem with the new fucntionality forced by the new API.. anyway we can talk more when you get there
+
+
+Emmanuel Amaro
+  3:48 PM
+I think that would be very helpful, but perhaps we should wait until we have the object store design more flushed out. Right now the object store design is still too blurry, so it will be hard to know how much of kona we will be able to map to it.
+:+1:
+1
+
+
+
+Anil Yelam
+  3:48 PM
+sounds good
+
+
+Anil Yelam
+  3:10 PM
+hi Emmanual - wanted to ask a few questions before you leave for the weekend. I’m planning to run memcached with fastswap, with memaslap generating the workload.
+have you made any changes to memcached to get it to run on fastswap?
+how to i control the local memory size that memcached gets? through setting cgroup limits i suppose? any gotchas there?
+is there a way to get some numbers from fastswap like the amount of page faults it is seeing, pages it’s evicting, etc?
+3:13
+also, do you have a memcached/memaslap setup that you can share? (apart from what you added to the public repo)
+
+
+Emmanuel Amaro
+  3:20 PM
+to run memaslap and memcached with fastswap I recommend using this repo https://github.com/clusterfarmem/cfm then you can use benchmark.py to request "memaslap"
+clusterfarmem/cfm
+Cluster Far Mem, framework to execute single job and multi job experiments using fastswap
+Stars
+9
+Language
+Python
+Added by https://vmware.slack.com/services/B01UWS06EEM
+3:22
+you can modify how much memory memaslap will use here https://github.com/clusterfarmem/cfm/blob/505f9a2f917ceb0561ddc181bd7843418d7b3311/lib/workloads.py#L309 (edited) 
+workloads.py
+class Memaslap(Workload):
+<https://github.com/clusterfarmem/cfm|clusterfarmem/cfm>clusterfarmem/cfm | Added by https://vmware.slack.com/services/B01UWS06EEM
+3:23
+how to i control the local memory size that memcached gets? through setting cgroup limits i suppose? any gotchas there?
+yes, you use cgroup to control the amount of memory. a gotcha here is that you need to use cgroupv2 (v1 won't work). the documentation here https://github.com/clusterfarmem/cfm mentions how to setup v2
+clusterfarmem/cfm
+Cluster Far Mem, framework to execute single job and multi job experiments using fastswap
+Stars
+9
+Language
+Python
+Added by https://vmware.slack.com/services/B01UWS06EEM
+
+
+Anil Yelam
+  3:25 PM
+very nice! thank you :pray:
+
+
+Emmanuel Amaro
+  3:25 PM
+is there a way to get some numbers from fastswap like the amount of page faults it is seeing, pages it’s evicting, etc?
+yes, the kernel patch adds a file you can read to get the current number of pages fastswap has: https://github.com/clusterfarmem/fastswap/blob/7fc986a62dd348b3592c207f4536646c3e610782/kernel/kernel.patch#L183
+kernel.patch
++    debugfs_create_file("curr_pages", S_IRUGO, root, NULL, &fops);
+<https://github.com/clusterfarmem/fastswap|clusterfarmem/fastswap>clusterfarmem/fastswap | Added by https://vmware.slack.com/services/B01UWS06EEM
+:+1:
+1
+
+3:26
+so you can usually get that from /sys/kernel/debug/frontswap/curr_pages
+3:27
+also, make sure to specify your reclaim cpu correctly here: https://github.com/clusterfarmem/fastswap/blob/7fc986a62dd348b3592c207f4536646c3e610782/kernel/kernel.patch#L195
+and don't schedule anything else in that cpu (basically, taskset all your workloads away from that cpu)
+kernel.patch
++#define FASTSWAP_RECLAIM_CPU    7
+<https://github.com/clusterfarmem/fastswap|clusterfarmem/fastswap>clusterfarmem/fastswap | Added by https://vmware.slack.com/services/B01UWS06EEM
+:+1:
+1
+
+
+
+Anil Yelam
+  3:28 PM
+i’m guessing this cpu should be in the same numa domain as the nic?
+
+
+Emmanuel Amaro
+  3:28 PM
+yes, ideally
+
+
+Anil Yelam
+  3:29 PM
+so this is offloaded reclaim if i rememeber correctly. but it this gets saturated, the faulting cpus will handle the reclaim correct?
+
+
+Emmanuel Amaro
+  3:30 PM
+yes, but it helps a lot in most cases
+
+
+Anil Yelam
+  3:30 PM
+makes sense
+3:30
+got all answers for now, thank you! :slightly_smiling_face:
+
+
+Emmanuel Amaro
+  3:31 PM
+sounds good!
+
+
+Anil Yelam
+  2:58 PM
+Hi Emmanuel, I’ve been gathering some numbers on memcached + fastswap and i’ll present them to Marcos (and my PI) in our group meeting tomorrow at 2pm. It’d be nice to have your input as well when we discuss the numbers, their meaning, legitimacy of my results, and how it compares to our system, etc. If nothing, it’s a discussion of fastswap so I thought I should invite you at the very least. Let me know if you can make it! :slightly_smiling_face:
+
+
+Emmanuel Amaro
+  3:43 PM
+Hey Anil, sure, I'd be happy to join
+
+
+Anil Yelam
+  3:47 PM
+awesome, will send the invite
+
+
+Emmanuel Amaro
+  4:01 PM
+Hey Anil, you can use /usr/bin/time to measure major page faults on a given process
+e.g., /usr/bin/time -v ./binary
+
+
+Anil Yelam
+  11:15 AM
+hey, thanks! i was using it but it gives me the number of page faults during the entire run which includes filling in the keys as well
+11:16
+sar -B gave page faults every second which i then scoped to just the duration of the run
+11:16
+although sar gives page faults of the entire system, not just the app
+
+
+Emmanuel Amaro
+  11:18 AM
+ah!
+11:18
+another option would be looking at the cgroup's memory.stat file
+:+1:
+1
+
+11:18
+you can look at it after loading the kv store
+11:18
+and then at the end
+11:19
+that should give you the delta
+
+
+Anil Yelam
+  11:20 AM
+oh nice!
+
+
+Emmanuel Amaro
+  4:57 PM
+Hey Anil, I just realized Shenango calls kernel threads... kernel threads; so I retract my suggestion of just using "threads".
+
+
+Anil Yelam
+  11:38 PM
+haha yeah that’s where i got the term from. in fact that whole line of work uses that term: arachne, scheduler activations, etc
+:100:
+1
+
+11:39
+also here’s nadav’s vdso patch if you’re curious: https://lore.kernel.org/lkml/20210225072910.2811795-1-namit@vmware.com
+
+
+Anil Yelam
+  4:07 PM
+Hi Emmanuel. here’s a question: when you write-protect a shared uffd page, does it lock it for all the workers? In other words, can you have protection on the same page for some workers, while it is writeable for other?
+4:07
+I was just thinking about the memory model. So when a worker maps an object, will it be writable for all the workers that has access to this object? In that case, I’m guessing the workers need to communicate/coordinate through other means to update the object in a consistent way..
+
+
+Emmanuel Amaro
+  10:34 AM
+Hey Anil, sorry I missed your message before.
+We are currently not write-protecting any of the shared buffer, I'm currently planning on assuming clients are trusted... unless I find a clever and fast way to go around this. But if we did it, I don't think you can allow writes from a subset of workers only. I don't even think there's a way to allow the object store to write while preventing workers from writing.
+Re the memory model, yes, this is largely handled by the unique object ids. They are assumed to be randomized, so collisions between create()s are unlikely. And an object can be found by other workers only after the creator calls seal() on it. So seal() provides the consistency point for created objects.
+
+
+Anil Yelam
+  10:59 AM
+no worries! So an object is exclusively available (regardless of read/write) for one worker at any point in time, guarded presumably by map() and seal() calls, right? I guess I was thinking of a slightly relaxed model where only writes are exclusive (w.r.t. reads and other writes) and concurrent reads can be done by many workers. Maybe this can be achieved by write-protection and splitting the map into map_read() and map_write() calls. (edited) 
+
+
+Emmanuel Amaro
+  11:46 AM
+No, once an object has been sealed, it can be read by all workers concurrently. This is enabled by the shared memory region.
+If an object is already sealed, a map() call will return immediately with the starting pointer to the object in the shared memory region.
+
+
+Anil Yelam
+  1:24 PM
+ok i see
+
+
+Anil Yelam
+  11:14 AM
+Hi Emmanuel
+11:15
+Is there a way to quickly get the end-to-end page fault latency of Fastswap as seen by the app?
+11:16
+Trying to target asplos in a couple of days so hope you don’t mind some quick, haphazard questions. I just want to put a number in moitvation that shows pf latency diff between a kernel-based page and userfaultfd. I don’t have the former now..
+
+
+Emmanuel Amaro
+  11:31 AM
+Hey Anil, I’d suggest creating a program that allocates a large buffer (e.g., 1GB), memsets it to some value, sleeps for say 30 seconds, and then iterates over the buffer reading  1-8 bytes for each 4KB page. Measure the time it takes to read the buffer, or measure the individual accesses (depending on what you need).
+When you launch the program, do it inside a cgroupv2.
+Then when the program sleeps, reduce the cgroup memory limit to a very low value like 16MB. This should force the kernel to evict most pages of the program, so when the read starts, all accesses should cause a page fault.
+
+
+Anil Yelam
+  11:37 AM
+thank you! will try that.
+:+1:
+1
+
+
+
+Anil Yelam
+  1:50 PM
+Hi Emmanuel, hope you’re well. quick question: do you know how much effort it’d be to port fastswap to, say, 5.15 kernel? I’m running my system on 5.15 vs fastswap on 4.15 and i’m worried that that’d affect comparison
+
+
+Emmanuel Amaro
+  2:42 PM
+Hey Anil. I’m good how about you?
+Unfortunately I don’t know. If I had to guess, I’d say it won’t be terribly hard but I also doubt it will be trivial.
+
+
+Emmanuel Amaro
+  3:17 PM
+Oh I guess you are collaborating with Amy now :slightly_smiling_face:
+:grinning:
+1
+
+3:17
+the full story is there was an attempt to make it work
+3:18
+by an undergrad
+3:18
+I would say a year ago
+3:18
+but he didn’t get it to stabilize
+3:18
+that’s why I think it wouldn’t be trivial
+
+
+Anil Yelam
+  3:18 PM
+Oh that’s too bad :disappointed:
+
+
+Emmanuel Amaro
+  3:18 PM
+but I also think it wouldn’t be terribly hard
+
+
+18 replies
+Last reply 5 months agoView thread
+
+
+Anil Yelam
+  3:20 PM
+yeah i’m targeting OSDI so not sure if that’s a good idea. its weird, even the trivial memory access benchmarks (without page faults) were wildly different on 4.15 vs 5.15
+3:20
+it’d be hard to justify comparison with page faults with who knows how many changes to the mm code
+
+
+Anil Yelam
+  3:21 PM
+replied to a thread:
+but I also think it wouldn’t be terribly hard
+would it be the kernel patch that needs re-writing? or do you also expect lot of changes in the module
+View newer replies
+
+
+Anil Yelam
+  2:22 PM
+Hi Emmanuel, do you think you can spare ~30mins to look at my fastswap setup today or tomorrow? Even on 4.11 kernel, fastswap’s behavior is a bit confusing e..g, when I set the local memory, I don’t see the eviction kicking in and pushing memory out.
+
+
+Emmanuel Amaro
+  2:23 PM
+are you using cgroupv2? and disabled cgroupv1?
+
+
+Anil Yelam
+  2:23 PM
+let me doublecheck
+
+
+Emmanuel Amaro
+  2:24 PM
+did you do the setting up cgroups steps here https://github.com/clusterfarmem/cfm ?
+clusterfarmem/cfm
+Cluster Far Mem, framework to execute single job and multi job experiments using fastswap
+Stars
+14
+Language
+Python
+Added by GitHub
+
+
+Anil Yelam
+  2:26 PM
+I believe so. I remember doing this when I setup fastswap kernel few weeks ago and haven’t changed by kernel since but let me go through those steps again
+
+
+Anil Yelam
+  2:34 PM
+yes, all those steps are covered
+
+
+Emmanuel Amaro
+  2:34 PM
+can you paste the relevant dmesg output in the server that connects to memory server
+
+1 reply
+5 months agoView thread
+
+
+Emmanuel Amaro
+  2:35 PM
+and the memory server output when the client connects
+
+1 reply
+5 months agoView thread
+
+
+Emmanuel Amaro
+  2:35 PM
+what’s the output of free
+
+1 reply
+5 months agoView thread
+
+
+Emmanuel Amaro
+  2:35 PM
+what’s the program you are launching and how do you push it to the cgroup?
+
+
+Anil Yelam
+  2:39 PM
+replied to a thread:
+and the memory server output when the client connects
+i’m using DRAM backend for testing
+2:39
+i can try rdma if you want
+
+
+Emmanuel Amaro
+  2:39 PM
+no that’s fine
+2:39
+how do you push your program to the cgroup?
+
+
+Anil Yelam
+  2:41 PM
+the program spits out the pid with getpid(), sleeps for sometime during which the script running it reads it and writes to
+echo $pid > /cgroup2/benchmarks/$APPNAME/cgroup.procs
+(edited)
+
+
+Emmanuel Amaro
+  2:41 PM
+when you do that
+2:43
+wait okay so
+2:43
+you launch the program
+2:43
+and then?
+
+
+Anil Yelam
+  2:44 PM
+getpid() and write to file
+sleeps for a bit (while the pid gets added to cgroup externally)
+malloc a big memory region
+touches all pages
+sets local memory limit to very low (e.g., echo %lu > /cgroup2/benchmarks/%s/memory.high)
+waits for eviction - which never happens
+(edited)
+2:44
+sorry, give me a min and i’ll write the whole list
+
+
+Emmanuel Amaro
+  2:45 PM
+have you tried running benchmark.py from here? https://github.com/clusterfarmem/cfm
+clusterfarmem/cfm
+Cluster Far Mem, framework to execute single job and multi job experiments using fastswap
+Stars
+14
+Language
+Python
+Added by GitHub
+
+
+Anil Yelam
+  2:47 PM
+i haven’t
+2:47
+shall i try? maybe it’d be easier for you to assist since you know what’s happening?
+
+
+Emmanuel Amaro
+  3:00 PM
+do you want to talk now?
+
+
+Anil Yelam
+  3:01 PM
+sure, let me see if I can find a meeting room
+3:01
+i’ll et you know in a sec
+
+
+Emmanuel Amaro
+  3:05 PM
+otherwise we can talk at 4pm?
+
+
+Anil Yelam
+  3:06 PM
+ok just found one
+3:06
+https://VMware.zoom.us/j/93090261795?pwd=ZFA3UHFoVWJicHVoblBoVG8yU3pydz09
+3:06
+4 is ok too if you prefer that
+
+
+Emmanuel Amaro
+  3:07 PM
+let’s do now
+3:07
+connecting
+
+
+Anil Yelam
+  10:47 AM
+Hi Emmanuel, thanks for the tip on the swap space - it helped. I was able to get page fault throughput numbers for single core. However, as I add more cores, it gets flaky, I see this memory corruption that’s eluding me. Is is possible that fastswap is not returning the pages in the same state after swapping?
+10:47
+would appreciate if you can spare a few mins again to talk today when you can
+10:50
+i’ll go offline starting tomorrow and won’t be around until after the thanksgiving week, so talking a bit today would be great! :)
+
+
+Emmanuel Amaro
+  10:54 AM
+:slightly_smiling_face:
+10:54
+what do you mean memory corruption?
+
+
+Anil Yelam
+  10:58 AM
+so my threads divvy up a malloc’d region and start writing to each sub-region of their own, few bytes to a page once per turn. By the time they are done (once I let them go for few secs), the variables on my thread stack gets corrupted by the time the loop is finished (some of local variables get updated). I checked multiple times that I’m not writing anything out of those regions…
+10:58
+i set gdb watchpoints on changing variables but they never get triggered!
+10:59
+which makes me think that the page is coming back corrupted after swapping?
+
+
+Emmanuel Amaro
+  11:00 AM
+have you tried running your workload with swapping to ssd?
+11:00
+without fastswap
+
+
+Anil Yelam
+  11:01 AM
+i haven’t… is it just the same process but without fastswap kernel?
+
+
+Emmanuel Amaro
+  11:02 AM
+yeah
+
+
+Anil Yelam
+  11:02 AM
+ok will try that
+
+
+Emmanuel Amaro
+  11:02 AM
+is this happening at a very low memory ratio to the program?
+11:02
+because as far as i know, stack pages won’t get evicted
+
+
+Anil Yelam
+  11:03 AM
+so my low memory limit is 200mb
+11:03
+oh?
+11:04
+interesting. i also haven’t run with rdma backend, maybe i should check with that as well?
+
+
+Emmanuel Amaro
+  11:05 AM
+I personally don’t see how that will change things
+11:06
+if you look at the dram backend, it is extremely simple. Simply copies pages in and out of a large buffer.
+11:06
+and everything is synchronous, whereas in rdma prefetched pages are asynchronous (edited) 
+
+
+Anil Yelam
+  11:07 AM
+gotcha. let me try swapping to ssd to rule out fastswap then :slightly_smiling_face:
+
+
+Emmanuel Amaro
+  11:08 AM
+does the failure only present if you use multiple threads? also, I assume running without decreasing the limit works fine
+
+
+Anil Yelam
+  11:09 AM
+yes, only with multiple threads. hm.. let me quickly double-check that next statement
+
+
+Anil Yelam
+  11:16 AM
+yup that is still correct
+
+
+Emmanuel Amaro
+  11:18 AM
+and you sized your swap partition correctly w.r.t. the dram buffer right?
+
+
+19 replies
+Last reply 5 months agoView thread
+
+
+Emmanuel Amaro
+  11:18 AM
+but yeah I’d try running with ssd using cgroup2
+:+1:
+1
+
+
+
+Anil Yelam
+  11:37 AM
+Ok so couple of questions I had:
+whatever datapoints i managed to get do show similar numbers as in the paper, with perf capping off pretty soon at 1 million ops. do you remember what causes this? because with Eden, I could go above 2 and more.
+after the “preloading”, fastswap takes some time to reach its max performance. attached vmstat during the run, the only number that seems to have any indication for the reason is the free pages going down during this warming up period. any idea what’s happening there?
+2 files
+ 
+
+vmstat
+Plain Text
+image.png
+image.png
+PNG
+11:40
+(btw don’t look at nr_anon_pages/nr_free_pages in those numbers, they are wrong; i mistakenly divided them with 1024*1024)
+
+
+Emmanuel Amaro
+  11:40 AM
+for the first question, i think the limit comes from somewhere in the kernel. perhaps the page table lock. but I never looked into it.
+:+1:
+1
+
+11:40
+i don’t understand the second question, can you rephrase?
+
+
+Anil Yelam
+  11:42 AM
+sure, so if you look at vmstat numbers during the microbenchmark run; first i write to all the pages with very low local memory (preload phase) and then i start the run with very high to get numbers without reclaim. The moment i start the run, fastswap takes a few seconds to reach its max performance — see majpgfaults
+
+
+Emmanuel Amaro
+  11:42 AM
+are you using a barrier in your program?
+11:42
+to start touching the pages at exactly the same time
+11:42
+across threads
+
+
+Anil Yelam
+  11:42 AM
+yes
+
+
+Emmanuel Amaro
+  11:43 AM
+are you pinning the threads to physical cores?
+
+
+Anil Yelam
+  11:43 AM
+yup
+11:45
+oh wait.. maybe the first few seconds need to deal with the dirty pages from the preload?
+11:45
+my idea was that preload was leaving some state that first few secs need to clean up
+
+
+Emmanuel Amaro
+  11:47 AM
+is this your ported fastswap to a newer kernel?
+11:47
+or is this in 4.11
+
+
+Anil Yelam
+  11:47 AM
+4.11
+11:48
+i mean i can just call those numbers as “warmup” and not count them but this will matter if i end up using small buffers like 4GB which will only last for a few secs
+
+
+Emmanuel Amaro
+  11:49 AM
+but you’ll run fastswap with rdma, right?
+11:49
+dram is only a exploratory backend
+
+
+Anil Yelam
+  11:49 AM
+yes
+
+
+Emmanuel Amaro
+  11:50 AM
+sure I mean if that’s what you get, that’s what you get :slightly_smiling_face:
+
+
+Anil Yelam
+  11:51 AM
+haha right :slightly_smiling_face:
+
+
+Emmanuel Amaro
+  11:51 AM
+you can also try growing the 4GB buffer
+11:51
+you can also check an internal counter
+11:52
+i think it is /sys/kernel/debug/frontswap/something ?
+11:52
+it tracks fetched and written pages
+
+
+Anil Yelam
+  11:53 AM
+sudo ls /sys/kernel/debug/frontswap
+curr_pages  failed_stores  invalidates  loads  succ_stores
+
+
+Emmanuel Amaro
+  11:54 AM
+yup, so you can validate your page faults/s, and make sure your stores don’t increase after your “eviction phase” (succ_stores) with these
+
+
+Anil Yelam
+  11:55 AM
+gotcha
+
+
+Anil Yelam
+  12:15 PM
+failed_stores  invalidates  loads     succ_stores  curr_pages  time  curr_pages_mb
+0.0            0.0          0.0       0.0          1516        1     5
+0.0            0.0          0.0       0.0          1516        2     5
+0.0            0.0          0.0       0.0          1516        3     5
+0.0            0.0          0.0       0.0          1516        4     5
+0.0            0.0          0.0       0.0          1516        5     5
+<preload start>
+0.0            0.0          1.0       135735.0     136415      7     532
+0.0            0.0          0.0       328335.0     465706      8     1819
+0.0            0.0          0.0       329603.0     796536      9     3111
+0.0            512.0        512.0     310333.0     1108155     10    4328
+0.0            0.0          2.0       206867.0     1316107     11    5141
+0.0            0.0          1.0       207418.0     1525673     12    5959
+0.0            0.0          0.0       258444.0     1784944     13    6972
+0.0            0.0          0.0       216164.0     2001325     14    7817
+0.0            0.0          0.0       267653.0     2271657     15    8873
+0.0            0.0          1.0       313834.0     2586476     16    10103
+0.0            0.0          0.0       198164.0     2784639     17    10877
+0.0            0.0          0.0       316342.0     3102493     18    12119
+0.0            0.0          0.0       311576.0     3415678     19    13342
+0.0            0.0          0.0       238053.0     3656474     20    14283
+0.0            0.0          1.0       224164.0     3882409     21    15165
+0.0            0.0          0.0       219791.0     4103081     22    16027
+0.0            0.0          0.0       240223.0     4343162     23    16965
+0.0            0.0          0.0       202819.0     4547340     24    17763
+0.0            0.0          0.0       307731.0     4857253     25    18973
+0.0            512.0        513.0     243793.0     5100594     26    19924
+0.0            0.0          0.0       297454.0     5399986     27    21093
+0.0            0.0          2.0       307857.0     5709045     28    22300
+0.0            1024.0       1025.0    291989.0     6002348     29    23446
+0.0            0.0          0.0       304057.0     6307540     30    24638
+0.0            0.0          0.0       317171.0     6625154     31    25879
+0.0            0.0          0.0       315880.0     6943525     32    27123
+0.0            0.0          0.0       311882.0     7255925     33    28343
+0.0            0.0          0.0       216411.0     7474603     34    29197
+0.0            512.0        513.0     280931.0     7755847     35    30296
+0.0            0.0          1.0       265901.0     8023301     36    31341
+0.0            0.0          0.0       285863.0     8310547     37    32463
+0.0            0.0          3.0       47121.0      8359341     38    32653
+<wait period>
+0.0            0.0          0.0       0.0          8359341     39    32653
+0.0            0.0          0.0       0.0          8359341     40    32653
+0.0            0.0          0.0       0.0          8359341     41    32653
+0.0            0.0          0.0       0.0          8359341     42    32653
+0.0            0.0          0.0       0.0          8359341     43    32653
+0.0            0.0          0.0       15872.0      8375213     44    32715
+< run starts>
+0.0            262912.0     263125.0  0.0          8112877     45    31690
+0.0            262656.0     262719.0  0.0          7850285     46    30665
+0.0            264768.0     264708.0  0.0          7585453     47    29630
+0.0            254912.0     255052.0  0.0          7330093     48    28633
+0.0            261504.0     261168.0  0.0          7068461     49    27611
+0.0            259904.0     260239.0  0.0          6809069     50    26597
+0.0            253504.0     253427.0  0.0          6555757     51    25608
+0.0            269824.0     269781.0  0.0          6285933     52    24554
+0.0            250560.0     250597.0  0.0          6035245     53    23575
+0.0            260544.0     260531.0  0.0          5774701     54    22557
+0.0            257536.0     257489.0  0.0          5517101     55    21551
+0.0            267136.0     267195.0  0.0          5250029     56    20507
+0.0            252160.0     252163.0  0.0          4997869     57    19522
+0.0            264384.0     264112.0  0.0          4733229     58    18489
+0.0            261504.0     261718.0  0.0          4471917     59    17468
+0.0            261248.0     261270.0  0.0          4210669     60    16447
+0.0            242368.0     242345.0  0.0          3968173     61    15500
+0.0            206976.0     206781.0  0.0          3760813     62    14690
+0.0            200320.0     200311.0  0.0          3560493     63    13908
+0.0            199616.0     199618.0  0.0          3360877     64    13128
+0.0            206208.0     206532.0  0.0          3155117     65    12324
+0.0            204416.0     204448.0  0.0          2950637     66    11525
+0.0            206912.0     206725.0  0.0          2743789     67    10717
+0.0            202560.0     202580.0  0.0          2541229     68    9926
+0.0            204672.0     204674.0  0.0          2336493     69    9126
+0.0            193536.0     193558.0  0.0          2142957     70    8370
+0.0            203264.0     203024.0  0.0          1939309     71    7575
+0.0            217408.0     217625.0  0.0          1722477     72    6728
+0.0            188032.0     188022.0  0.0          1534317     73    5993
+0.0            188928.0     188759.0  0.0          1344941     74    5253
+0.0            0.0          0.0       0.0          1344941     75    5253
+0.0            354426.0     0.0       0.0          1004634     76    3924
+0.0            988998.0     0.0       0.0          1517        77    5
+< run ends >
+12:15
+thanks for the tip!
+12:15
+my code measures 234K on average, which matches with loads!
+12:16
+this is just /sys/kernel/debug/frontswap/* over the run
+
+
+Emmanuel Amaro
+  12:29 PM
+cool, is this with dram? I wonder why you don’t get 1M like we did in the paper
+
+
+Anil Yelam
+  12:29 PM
+this is one core :slightly_smiling_face:
+12:29
+we get 1M
+
+
+Emmanuel Amaro
+  12:29 PM
+ahh ok ok
+12:29
+cool!!
+
+
+Anil Yelam
+  12:35 PM
+thanks for the help! :slightly_smiling_face:
+
+
+Emmanuel Amaro
+  2:00 PM
+no problem
+
+
+Anil Yelam
+  3:27 PM
+Hi Emmanuel, hope you had a good holiday!
+Thanks for the earlier help with Fastswap, I was able to run it in all kinds of settings and get baseline numbers! In terms of raw fault serving performance, the below charts show Fastswap in red for 1) serving faults without reclaim, local backend 2) without reclaim, rdma backend, 3) with reclaim but no dirty pages/write-back 4) with reclaim with dirty pages/write-back. The first two charts looks similar to Fastswap paper but last two are not available in the paper. Do you know what could be happening at higher cores (>8) in the last two charts where performance seems to go in a different direction? Thanks! :slightly_smiling_face:
+4 files
+ 
+
+micro-noevict-local.pdf
+PDF
+
+micro-noevict-rdma.pdf
+PDF
+
+micro-evict-local.pdf
+PDF
+
+micro-evict-dirty-local.pdf
+PDF
+
+
+Emmanuel Amaro
+  8:02 AM
+Hey Anil. What does it mean “with reclaim but no dirty pages/write-back”? Same question for 4.
+How does your system work in terms of evictions? i.e., does it use additional cores for eviction?
+
+
+4 replies
+Last reply 4 months agoView thread
+
+
+Emmanuel Amaro
+  8:05 AM
+The micro-noevict-rdma chart looks good to me. I wouldn’t put emphasis on evicting to local memory because the main design points about fastswap come from using a mix of sync/async reads to resolve page faults. Local backend is only provided for sanity check purposes, and all page faults are resolved synchronously.
+
+1 reply
+4 months agoView thread
+
+
+Emmanuel Amaro
+  8:07 AM
+In other words, Section 4 of the paper discusses RDMA backend only, and figure 3 only captures RDMA.
+
+
+Emmanuel Amaro
+  12:05 PM
+I don’t have enough information about the microbenchmark to answer your questions
+:+1:
+1
+
+12:06
+but my guess is there’s some saturation of resources, given the shape of the lines
+
+
+Anil Yelam
+  5:22 PM
+No worries :slightly_smiling_face: It was more of a “do you remember seeing such numbers before” kind of question; not expecting a solid answer.
+:+1:
+1
+
+
+
+Anil Yelam
+  1:44 PM
+Hi Emmanuel. A quick question about fastswap’s read-ahead: do you know if the extra pages brought in to the cache are accounted for in cgroup’s memory limit? My understanding is that they are placed in the cache until they get faulted on, at which point it gets accounted?
+1:45
+I’m running sort which always benefits from the read-ahead, so was wondering how it affects the total amount of local memory used for the app (both mapped and in the cache)
+
+
+Emmanuel Amaro
+  3:34 PM
+I don’t remember the details, but I seem to remember that’s true: pages are accounted when they get mapped during a minor page fault. The page could also be in-flight, in which case the minor page fault will wait for the page to be fully transferred.
+
+
+Anil Yelam
+  4:10 PM
+that agrees with my understanding, thanks!
